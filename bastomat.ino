@@ -160,9 +160,15 @@ void helloCallback() {
 
 void helloCallback2() {
   sendCommand("sleep=1");
+  timer3.start();
 }
 
 void getProximityStatus(){
+  int val = analogRead(A8);
+  if(val>250){
+   sendCommand("sleep=0");
+   timer3.stop();
+  }
   
 }
 
@@ -1199,10 +1205,12 @@ void setup() {
   sendCommand("thup=1");
   timer.setInterval(20000);
   setScreenTime(screenTime);
+  timer3.setInterval(500);
   // The function to be called
   timer.setCallback(helloCallback);
   timer2.setCallback(helloCallback2);
-
+  timer3.setCallback(getProximityStatus);
+  
   // Start the timer
   timer.start();
   if (offTime == true) {
@@ -1357,6 +1365,9 @@ void loop() {
   timer.update();
   if (offTime == true) {
     timer2.update();
+  }
+  if(proximity==true){
+    timer3.update();
   }
   //huNum.setVisible(0);
         // reads the value of the sharp sensor
