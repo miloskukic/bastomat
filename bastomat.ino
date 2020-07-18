@@ -151,45 +151,43 @@ NexNumber b208 = NexNumber(2, 10, "b208");
 DHT dht(DHTPIN, DHTTYPE);
 DS3231  rtc(SDA, SCL);
 
-/* VREMENSKE (TIMER) FUNKCIJE */
-
-void helloCallback() {
-  trenutneVrednosti();
-  timeTxt.setText(rtc.getTimeStr(FORMAT_SHORT));
-}
-
-void helloCallback2() {
-  sendCommand("sleep=1");
-  timer3.start();
-}
-
-void getProximityStatus(){
-  int val = analogRead(A8);
-  if(val>250){
-   sendCommand("sleep=0");
-   timer3.stop();
-  }
-  
-}
-
-/* VREMENSKE FUNKCIJE KRAJ*/
-
 
 int i = 0;
 int i2 = 0;
 int i3 = 0;
 int mod = 0;
-boolean zimski = EEPROM.read(118);
-boolean prihrana = EEPROM.read(124);
+boolean zimski;
+boolean prihrana;
 boolean ventilTest = false;
-boolean pistalica = EEPROM.read(128);
-boolean proximity = EEPROM.read(129);
-boolean ventilator = EEPROM.read(132);
-boolean offTime = EEPROM.read(152);
-int brightness = EEPROM.read(151);
-int screenTime = EEPROM.read(150);
+boolean pistalica;
+boolean proximity;
+boolean ventilator;
+boolean offTime;
+int brightness;
+int screenTime=EEPROM.read(150);
+int pocetnoVremeS=EEPROM.read(119);
+int pocetnoVremeM = EEPROM.read(120);
+int ZavrsnoVremeS = EEPROM.read(121);
+int ZavrsnoVremeM = EEPROM.read(122);
+int modRada = EEPROM.read(123);
 
-int modRada = 0;
+void ucitajVrednosti() {
+  modRada = EEPROM.read(123);
+  zimski = EEPROM.read(118);
+  prihrana = EEPROM.read(124);
+  ventilTest = false;
+  pistalica = EEPROM.read(128);
+  proximity = EEPROM.read(129);
+  ventilator = EEPROM.read(132);
+  offTime = EEPROM.read(152);
+  brightness = EEPROM.read(151);
+  pocetnoVremeS = EEPROM.read(119);
+  pocetnoVremeM = EEPROM.read(120);
+  ZavrsnoVremeS = EEPROM.read(121);
+  ZavrsnoVremeM = EEPROM.read(122);
+}
+
+
 
 NexTouch *nex_listen_list[] = {
   &b404,
@@ -265,6 +263,87 @@ NexTouch *nex_listen_list[] = {
   &b0,
   NULL
 };
+
+/* PODESAVANJE EKRANA KRAJ*/
+
+/***************************
+          [FUNKCIJE ]
+****************************/
+
+void vremenskoNavodnjavanje() {
+  String pocetno_vreme,zavrsno_vreme;
+  String trenutno_vreme = rtc.getTimeStr(FORMAT_SHORT);
+  if (pocetnoVremeS > 9) {
+    pocetno_vreme = String(pocetnoVremeS) + ":" + String(pocetnoVremeM);
+    if (pocetnoVremeM < 10) {
+      pocetno_vreme = "";
+      pocetno_vreme = String(pocetnoVremeS) + ":" + "0" + String(pocetnoVremeM);
+    }
+  }
+  else {
+    pocetno_vreme = "0" + String(pocetnoVremeS) + ":" + String(pocetnoVremeM);
+    if (pocetnoVremeM < 10) {
+      pocetno_vreme = "0" + String(pocetnoVremeS) + ":" + "0" + String(pocetnoVremeM);
+    }
+  }
+
+  if (ZavrsnoVremeS > 9) {
+    zavrsno_vreme = String(ZavrsnoVremeS) + ":" + String(ZavrsnoVremeM);
+    if (ZavrsnoVremeM < 10) {
+      zavrsno_vreme = String(ZavrsnoVremeS) + ":" + "0" + String(ZavrsnoVremeM);
+    }
+  }
+  else {
+    zavrsno_vreme = "0" + String(ZavrsnoVremeS) + ":" + String(ZavrsnoVremeM);
+    if (ZavrsnoVremeM < 10) {
+    zavrsno_vreme = "0" + String(ZavrsnoVremeS) + ":" + "0" + String(ZavrsnoVremeM);
+    }
+  }
+
+  if (trenutno_vreme.equals(pocetno_vreme)) {
+    digitalWrite(10, LOW);
+  }
+  if (trenutno_vreme.equals(zavrsno_vreme)) {
+    digitalWrite(10, HIGH);
+  }
+}
+
+
+
+void pokretanjePrograma() {
+  digitalWrite(10,HIGH);
+  switch (modRada) {
+    case 0: break;
+    case 1: break;
+    case 2: vremenskoNavodnjavanje();break;
+    case 3: break;
+    default: break;
+  }
+}
+
+/* VREMENSKE (TIMER) FUNKCIJE */
+
+void helloCallback() {
+  trenutneVrednosti();
+  pokretanjePrograma();
+  timeTxt.setText(rtc.getTimeStr(FORMAT_SHORT));
+}
+
+void helloCallback2() {
+  sendCommand("sleep=1");
+  timer3.start();
+}
+
+void getProximityStatus() {
+  int val = analogRead(A8);
+  if (val > 250) {
+    sendCommand("sleep=0");
+    timer3.stop();
+  }
+
+}
+
+/* VREMENSKE FUNKCIJE KRAJ*/
 
 /* STRANICA TEMPERATURA */
 
@@ -662,7 +741,7 @@ void b911PopCallback(void *ptr) {
 }
 
 void b903PopCallback(void *ptr) {
-  if (i < 12)
+  if (i < 23)
   {
     i++;
     satNum.setValue(i);
@@ -774,12 +853,14 @@ void b305PopCallback(void *ptr) {
 }
 
 void b109PopCallback(void *ptr) {
+  ucitajVrednosti();
+  pokretanjePrograma();
   modRada = EEPROM.read(123);
   hideStatus();
   trenutneVrednosti();
   timeTxt.setText(rtc.getTimeStr(FORMAT_SHORT));
-  if(offTime==true){
-  timer2.start();
+  if (offTime == true) {
+    timer2.start();
   }
 }
 
@@ -939,11 +1020,11 @@ void b1608PopCallback(void *ptr) {
 void bt201PopCallback(void *ptr) {
   if (ventilTest == false) {
     ventilTest = true;
-    digitalWrite(13, HIGH);
+    digitalWrite(10, LOW);
   }
   else {
     ventilTest = false;
-    digitalWrite(13, LOW);
+    digitalWrite(10, HIGH);
   }
 }
 
@@ -1072,25 +1153,25 @@ void b1708PopCallback(void *ptr) {
   mod = 1;
 }
 
-void setBrightness(int i){
-  String command="dim=";
-  command = command+i;
+void setBrightness(int i) {
+  String command = "dim=";
+  command = command + i;
   char charBuf[8];
   command.toCharArray(charBuf, 8);
   sendCommand(charBuf);
 }
 
-void setScreenTime(int i){
-  float broj=0;
-  broj=i;
-  broj=broj*1000;
+void setScreenTime(int i) {
+  float broj = 0;
+  broj = i;
+  broj = broj * 1000;
   timer2.setInterval(broj);
 }
 
 void b1709PopCallback(void *ptr) {
   if (mod == 0) {
     EEPROM.write(150, i);
-    screenTime=i;
+    screenTime = i;
     timer2.stop();
     timer2.clearInterval();
     setScreenTime(i);
@@ -1099,9 +1180,9 @@ void b1709PopCallback(void *ptr) {
   if (mod == 1) {
     EEPROM.write(151, i);
     setBrightness(i);
-    brightness=i;
+    brightness = i;
   }
-  i=0;
+  i = 0;
   n1703.setValue(0);
   mod = 3;
 
@@ -1192,12 +1273,12 @@ void b208PopCallback(void *ptr) {
 }
 
 void b0PopCallback(void *ptr) {
- if(offTime==true){
- timer2.stop();
- }
+  if (offTime == true) {
+    timer2.stop();
+  }
 }
 
-/* PODESAVANJE EKRANA KRAJ*/
+
 
 
 void setup() {
@@ -1210,7 +1291,7 @@ void setup() {
   timer.setCallback(helloCallback);
   timer2.setCallback(helloCallback2);
   timer3.setCallback(getProximityStatus);
-  
+
   // Start the timer
   timer.start();
   if (offTime == true) {
@@ -1219,6 +1300,8 @@ void setup() {
 
   nexInit();
   modRada = EEPROM.read(123);
+  ucitajVrednosti();
+ 
   hideStatus();
   setBrightness(brightness);
 
@@ -1326,9 +1409,12 @@ void setup() {
 
   b0.attachPop(b0PopCallback, &b0);
 
+
   dht.begin();
   rtc.begin();
   pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(10, OUTPUT);
+  digitalWrite(10,HIGH);
   pinMode(A0, INPUT);
 
   Serial.write(0xff);
@@ -1355,22 +1441,22 @@ void temperatura(int mode) {
 }
 
 void loop() {
-  /*int val = analogRead(A8); 
-  if(val>300){
+  /*int val = analogRead(A8);
+    if(val>300){
     sendCommand("sleep=0");
-  }
-  else{
+    }
+    else{
     sendCommand("sleep=1");
-  }*/
+    }*/
   timer.update();
   if (offTime == true) {
     timer2.update();
   }
-  if(proximity==true){
+  if (proximity == true) {
     timer3.update();
   }
   //huNum.setVisible(0);
-        // reads the value of the sharp sensor
+  // reads the value of the sharp sensor
   //Serial.println(val);
   //delay(200);
   nexLoop(nex_listen_list);
