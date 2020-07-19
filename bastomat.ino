@@ -13,6 +13,7 @@ Timer timer3;
 
 NexText tempTxt = NexText(0, 7, "t3");
 NexText humTxt = NexText(0, 5, "t1");
+NexText humZTxt = NexText(0, 6, "t2");
 NexText timeTxt = NexText(0, 1, "t0");
 
 NexText b0 = NexText(0, 11, "b0");
@@ -156,6 +157,7 @@ int i = 0;
 int i2 = 0;
 int i3 = 0;
 int mod = 0;
+boolean navodnjavanje=false;
 boolean zimski;
 boolean prihrana;
 boolean ventilTest = false;
@@ -302,16 +304,18 @@ void vremenskoNavodnjavanje() {
 
   if (trenutno_vreme.equals(pocetno_vreme)) {
     digitalWrite(10, LOW);
+    navodnjavanje=true;
   }
   if (trenutno_vreme.equals(zavrsno_vreme)) {
     digitalWrite(10, HIGH);
+    navodnjavanje=false;
   }
 }
 
 
 
 void pokretanjePrograma() {
-  digitalWrite(10,HIGH);
+  //digitalWrite(10,HIGH);
   switch (modRada) {
     case 0: break;
     case 1: break;
@@ -326,6 +330,7 @@ void pokretanjePrograma() {
 void helloCallback() {
   trenutneVrednosti();
   pokretanjePrograma();
+  updateSatus();
   timeTxt.setText(rtc.getTimeStr(FORMAT_SHORT));
 }
 
@@ -793,6 +798,15 @@ void b908PopCallback(void *ptr) {
 
 /* STRANICA TAJMER KRAJ */
 
+void updateSatus(){
+  if(navodnjavanje==true){
+    p7.setVisible(1);
+  }
+  else{
+    p7.setVisible(0);
+  }
+}
+
 void hideStatus() {
 
   switch (modRada) {
@@ -857,6 +871,7 @@ void b109PopCallback(void *ptr) {
   pokretanjePrograma();
   modRada = EEPROM.read(123);
   hideStatus();
+  updateSatus();
   trenutneVrednosti();
   timeTxt.setText(rtc.getTimeStr(FORMAT_SHORT));
   if (offTime == true) {
@@ -1416,6 +1431,7 @@ void setup() {
   pinMode(10, OUTPUT);
   digitalWrite(10,HIGH);
   pinMode(A0, INPUT);
+  pinMode(A1, INPUT);
 
   Serial.write(0xff);
   Serial.write(0xff);
@@ -1432,6 +1448,12 @@ void trenutneVrednosti() {
   static char humidityC[3];
   dtostrf(h, 3, 0, humidityC);
   humTxt.setText(humidityC);
+
+  float hZS = analogRead(A1);
+  float hZ = map(hZS, 650, 375, 0, 100);
+  static char humidityZ[3];
+  dtostrf(hZ, 3, 0, humidityZ);
+  humZTxt.setText(humidityZ);
 }
 
 
