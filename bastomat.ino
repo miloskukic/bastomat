@@ -5,6 +5,8 @@
 #include "DHT.h"
 #include "timer.h"
 #include "EEPROMAnything.h"
+#include <stdlib.h>
+#include <String.h>
 
 Timer timer;
 Timer timer2;
@@ -97,6 +99,8 @@ NexButton b1608 = NexButton(16, 1, "b1608");
 NexNumber vNum1 = NexNumber(16, 12, "n1610");
 NexNumber vNum2 = NexNumber(16, 13, "n1612");
 NexNumber vNum3 = NexNumber(16, 14, "n1614");
+NexButton b207 = NexButton(2, 9, "b207");
+NexDSButton bt1615 = NexDSButton(16, 15, "bt1615");
 
 //TASTERI ZA UKLJUCIVANJE
 
@@ -145,6 +149,10 @@ NexDSButton bt1702 = NexDSButton(17, 6, "bt1702");
 NexNumber n1703 = NexNumber(17, 10, "n1703");
 NexNumber b208 = NexNumber(2, 10, "b208");
 
+//FABRICKA
+
+NexDSButton t1304 = NexDSButton(13, 4, "t1304");
+
 #define DHTPIN 2
 #define DHTTYPE DHT22
 
@@ -157,36 +165,59 @@ int i = 0;
 int i2 = 0;
 int i3 = 0;
 int mod = 0;
-boolean navodnjavanje=false;
+boolean navodnjavanje = false;
 boolean zimski;
+boolean zimskiS;
 boolean prihrana;
+boolean prihranaS;
 boolean ventilTest = false;
 boolean pistalica;
 boolean proximity;
 boolean ventilator;
+boolean ventilatorS;
 boolean offTime;
 int brightness;
-int screenTime=EEPROM.read(150);
-int pocetnoVremeS=EEPROM.read(119);
+int screenTime = EEPROM.read(150);
+int pocetnoVremeS = EEPROM.read(119);
 int pocetnoVremeM = EEPROM.read(120);
 int ZavrsnoVremeS = EEPROM.read(121);
 int ZavrsnoVremeM = EEPROM.read(122);
+int datumPD = EEPROM.read(184);
+int datumPM = EEPROM.read(185);
+int datumPG = EEPROM.read(186);
+int prihranaB = EEPROM.read(188);
+int prihranaBM = EEPROM.read(124);
+int kalibracijaTmp;
+int kalibracijaHum;
+int kalibracijaHumZ;
+int vTmp;
+int vHum;
+int zmTmpG;
+int zmTmpD;
+int vlZD;
+int vlZG;
+int tmpG;
+int tmpD;
+int humG;
+int humD;
+int navodnjavanjeBR = EEPROM.read(189);
+char datumP[10];
+
 int modRada = EEPROM.read(123);
 
 void ucitajVrednosti() {
-  modRada = EEPROM.read(123);
-  zimski = EEPROM.read(118);
-  prihrana = EEPROM.read(124);
-  ventilTest = false;
-  pistalica = EEPROM.read(128);
-  proximity = EEPROM.read(129);
-  ventilator = EEPROM.read(132);
-  offTime = EEPROM.read(152);
-  brightness = EEPROM.read(151);
-  pocetnoVremeS = EEPROM.read(119);
-  pocetnoVremeM = EEPROM.read(120);
-  ZavrsnoVremeS = EEPROM.read(121);
-  ZavrsnoVremeM = EEPROM.read(122);
+  modRada = EEPROM.read(123); zimski = EEPROM.read(118); prihrana = EEPROM.read(224);
+  ventilTest = false; pistalica = EEPROM.read(128); proximity = EEPROM.read(129);
+  ventilator = EEPROM.read(132); offTime = EEPROM.read(152); brightness = EEPROM.read(151);
+  pocetnoVremeS = EEPROM.read(119); pocetnoVremeM = EEPROM.read(120); ZavrsnoVremeS = EEPROM.read(121);
+  ZavrsnoVremeM = EEPROM.read(122); vTmp = EEPROM.read(131); vHum = EEPROM.read(130); zmTmpG = EEPROM.read(116);
+  zmTmpD = EEPROM.read(117); prihranaBM = EEPROM.read(124); vlZD = EEPROM.read(115); vlZG = EEPROM.read(114);
+  tmpG = EEPROM.read(110); tmpD = EEPROM.read(111); humG = EEPROM.read(112); humD = EEPROM.read(113);
+
+  EEPROM_readAnything(154, kalibracijaTmp);
+  EEPROM_readAnything(134, kalibracijaHum);
+  EEPROM_readAnything(144, kalibracijaHumZ);
+  EEPROM_readAnything(190, datumP);
 }
 
 
@@ -263,6 +294,9 @@ NexTouch *nex_listen_list[] = {
   &n1703,
   &b208,
   &b0,
+  &bt1615,
+  &b207,
+  &t1304,
   NULL
 };
 
@@ -272,8 +306,122 @@ NexTouch *nex_listen_list[] = {
           [FUNKCIJE ]
 ****************************/
 
+void fabrickaP() {
+
+  i = 0, i2 = 0, i3 = 0;
+  mod = 0; navodnjavanje = false; zimski = false; zimskiS = false;
+  prihrana = false; ventilTest = false; pistalica = false; proximity = false;
+  ventilator = false; ventilatorS = false, prihranaS = false;
+
+  offTime = 0; brightness = 100; pocetnoVremeS = 0; pocetnoVremeM = 0;
+  ZavrsnoVremeS = 0; ZavrsnoVremeM = 0; kalibracijaTmp = 0; kalibracijaHum = 0;
+  kalibracijaHumZ = 0; vTmp = 0; vHum = 0; zmTmpG = 0;
+  zmTmpD = 0;
+
+  EEPROM.write(110, 0); EEPROM.write(111, 0); EEPROM.write(112, 0); EEPROM.write(113, 0);
+  EEPROM.write(114, 0); EEPROM.write(115, 0); EEPROM.write(116, 0); EEPROM.write(117, 0);
+  EEPROM.write(118, 0); EEPROM.write(119, 0); EEPROM.write(120, 0); EEPROM.write(121, 0);
+  EEPROM.write(122, 0); EEPROM.write(123, 0); EEPROM.write(124, 0); EEPROM.write(125, 0);
+  EEPROM.write(126, 0); EEPROM.write(127, 0); EEPROM.write(128, 0); EEPROM.write(129, 0);
+  EEPROM.write(130, 0); EEPROM.write(131, 0); EEPROM.write(132, 0); EEPROM.write(181, 0);
+  EEPROM.write(182, 0); EEPROM.write(183, 0); EEPROM.write(150, 0); EEPROM.write(151, 0);
+  EEPROM.write(152, 0); EEPROM.write(184, 0); EEPROM.write(185, 0); EEPROM.write(186, 0); EEPROM.write(187, 0);
+  EEPROM.write(188, 0);
+
+  EEPROM_writeAnything(154, 0); EEPROM_writeAnything(144, 0); EEPROM_writeAnything(134, 0);
+
+  rtc.setTime(0, 0, 0);
+  rtc.setDate(1, 1, 2000);
+}
+
+char datum[30];
+char* intToDateStr(int day1, int mon1, int year1) {
+  char dayC[4];
+  char monC[4];
+  char yearC[8];
+  memset(datum, 0, sizeof datum);
+  if (day1 < 10) {
+    itoa(day1, dayC, 10);
+    strcat(datum, "0");
+    strcat(datum, dayC);
+    strcat(datum, ".");
+  }
+  else {
+    itoa(day1, dayC, 10);
+    strcat(datum, dayC);
+    strcat(datum, ".");
+  }
+
+
+  if (mon1 < 10) {
+    itoa(mon1, monC, 10);
+    strcat(datum, "0");
+    strcat(datum, monC);
+    strcat(datum, ".");
+  }
+  else {
+    itoa(mon1, monC, 10);
+    strcat(datum, monC);
+    strcat(datum, ".");
+  }
+
+
+  itoa(year1, yearC, 10);
+  if (year1 < 10) {
+    strcat(datum, "200");
+    strcat(datum, yearC);
+  }
+  else {
+    strcat(datum, "20");
+    strcat(datum, yearC);
+  }
+
+  return datum;
+}
+
+
+int dateToInt(char s[], char type) {
+  char sub[30];
+  int val;
+  switch (type) {
+    case 'd': //day
+      substr(s, sub, 1, 2);
+      val = atoi(sub);
+      return val;
+      break;
+    case 'm': //month
+      substr(s, sub, 4, 2);
+      val = atoi(sub);
+      return val;
+      break;
+    case 'y': //year
+      substr(s, sub, 9, 2);
+      val = atoi(sub);
+      return val;
+      break;
+    default: return 0;
+  }
+}
+
+
+
+void substr(char s[], char sub[], int p, int l) {
+  int c = 0;
+
+  while (c < l) {
+    sub[c] = s[p + c - 1];
+    c++;
+  }
+  sub[c] = '\0';
+}
+
+
+
+
+
+
 void vremenskoNavodnjavanje() {
-  String pocetno_vreme,zavrsno_vreme;
+  String pocetno_vreme, zavrsno_vreme;
   String trenutno_vreme = rtc.getTimeStr(FORMAT_SHORT);
   if (pocetnoVremeS > 9) {
     pocetno_vreme = String(pocetnoVremeS) + ":" + String(pocetnoVremeM);
@@ -298,40 +446,166 @@ void vremenskoNavodnjavanje() {
   else {
     zavrsno_vreme = "0" + String(ZavrsnoVremeS) + ":" + String(ZavrsnoVremeM);
     if (ZavrsnoVremeM < 10) {
-    zavrsno_vreme = "0" + String(ZavrsnoVremeS) + ":" + "0" + String(ZavrsnoVremeM);
+      zavrsno_vreme = "0" + String(ZavrsnoVremeS) + ":" + "0" + String(ZavrsnoVremeM);
     }
   }
 
   if (trenutno_vreme.equals(pocetno_vreme)) {
     digitalWrite(10, LOW);
-    navodnjavanje=true;
+    navodnjavanje = true;
   }
   if (trenutno_vreme.equals(zavrsno_vreme)) {
     digitalWrite(10, HIGH);
-    navodnjavanje=false;
+    navodnjavanje = false;
   }
 }
 
+void rucnoNavodnjavanje() {
+  digitalWrite(10, LOW);
+  navodnjavanje = true;
+}
 
+void rezimOdmora() {
+  digitalWrite(10, HIGH);
+  navodnjavanje = false;
+}
+
+void ventilatorF() {
+  float tmp, hum;
+  tmp = dht.readTemperature();
+  tmp = tmp + (float)kalibracijaTmp;
+  hum = dht.readHumidity();
+  hum = hum + (float)kalibracijaHum;
+  if (tmp > vTmp or hum > vHum) {
+    digitalWrite(11, LOW);
+    ventilatorS = true;
+  }
+  else {
+    digitalWrite(11, HIGH);
+    ventilatorS = false;
+  }
+}
+
+void zimskiF() {
+  float tmp;
+  tmp = dht.readTemperature();
+  tmp = tmp + (float)kalibracijaTmp;
+  if (tmp <= zmTmpG and tmp >= zmTmpD) {
+    digitalWrite(12, LOW);
+    zimskiS = true;
+  }
+  else {
+    digitalWrite(12, HIGH);
+    zimskiS = false;
+  }
+}
+
+/*void navodnjavanjeF(){
+  if(navodnjavanjeBR>navodnjavanjeB){
+    //show notify
+    navodnjavanjeBR=0;
+  }
+
+  }*/
+
+void automatskoNavodnjavanje() {
+  EEPROM_readAnything(154, kalibracijaTmp);
+  EEPROM_readAnything(134, kalibracijaHum);
+  EEPROM_readAnything(144, kalibracijaHumZ);
+  float tmp;
+  tmp = dht.readTemperature();
+  tmp = tmp + (float)kalibracijaTmp;
+  float hum;
+  hum = dht.readHumidity();
+  hum = hum + (float)kalibracijaHum;
+  float hZS = analogRead(A1);
+  float hZ = map(hZS, 650, 375, 0, 100);
+  hZ = hZ + (float)kalibracijaHumZ;
+
+
+  if ((hum <= humD and hum >= humG) and (tmp <= tmpG and tmp >= tmpD)) {
+    if (hZ <= vlZD) {
+      digitalWrite(10, LOW);
+      navodnjavanje = true;
+    }
+  }
+  if (hZ >= vlZG) {
+    digitalWrite(10, HIGH);
+    navodnjavanje = false;
+  }
+
+}
 
 void pokretanjePrograma() {
   //digitalWrite(10,HIGH);
   switch (modRada) {
-    case 0: break;
-    case 1: break;
-    case 2: vremenskoNavodnjavanje();break;
-    case 3: break;
-    default: break;
+    case 0: rezimOdmora(); break;
+    case 1: automatskoNavodnjavanje(); break;
+    case 2: vremenskoNavodnjavanje(); break;
+    case 3: rucnoNavodnjavanje(); break;
+    default: rezimOdmora(); break;
+  }
+  if (ventilator == true) {
+    ventilatorF();
+  }
+  else {
+    digitalWrite(11, HIGH);
+    ventilatorS = false;
+  }
+  if (zimski == true) {
+    zimskiF();
+  }
+  else {
+    digitalWrite(12, HIGH);
+    zimskiS = false;
+  }
+  if (prihrana == true) {
+    if (prihranaB > prihranaBM) {
+      prihranaS = true;
+    }
+  }
+  else {
+    prihranaS = false;
   }
 }
 
+void noviDan() {
+  String txt = rtc.getDateStr();
+  String time = rtc.getTimeStr(FORMAT_SHORT);
+  if (time.equals("23:59") or time.equals("12:00")) {
+    String oldDate = intToDateStr(EEPROM.read(184), EEPROM.read(185), EEPROM.read(186));
+    char myCharArry[10];
+    if (txt.equals(oldDate) == 0) {
+      for (int i = 0; i < txt.length(); i++) {
+        myCharArry[i] = txt[i];
+      }
+      EEPROM.write(184, dateToInt(myCharArry, 'd'));
+      EEPROM.write(185, dateToInt(myCharArry, 'm'));
+      EEPROM.write(186, dateToInt(myCharArry, 'y'));
+      prihranaB++;
+      EEPROM.write(188, prihranaB);
+
+      //Serial.print("NOVI DATUM!");
+    }
+    //Serial.print("NEW>!");
+    //Serial.print(txt);
+    //Serial.print("OLD>!");
+    //Serial.print(oldDate);
+    //Serial.print("PRIHRANA B>!");
+    // Serial.print(prihranaB);
+    //Serial.print("PRIHRANA BM>!");
+    //Serial.print(prihranaBM);
+  }
+}
 /* VREMENSKE (TIMER) FUNKCIJE */
 
 void helloCallback() {
   trenutneVrednosti();
   pokretanjePrograma();
-  updateSatus();
+  updateStatus();
   timeTxt.setText(rtc.getTimeStr(FORMAT_SHORT));
+  noviDan();
+
 }
 
 void helloCallback2() {
@@ -344,6 +618,8 @@ void getProximityStatus() {
   if (val > 250) {
     sendCommand("sleep=0");
     timer3.stop();
+    timer2.stop();
+    timer2.start();
   }
 
 }
@@ -798,13 +1074,34 @@ void b908PopCallback(void *ptr) {
 
 /* STRANICA TAJMER KRAJ */
 
-void updateSatus(){
-  if(navodnjavanje==true){
+void updateStatus() {
+  if (navodnjavanje == true) {
     p7.setVisible(1);
   }
-  else{
+  else {
     p7.setVisible(0);
   }
+  if (ventilatorS == true) {
+    p8.setVisible(1);
+  }
+  else {
+    p8.setVisible(0);
+  }
+
+  if (zimskiS == true) {
+    p11.setVisible(1);
+  }
+  else {
+    p11.setVisible(0);
+  }
+
+  if (prihranaS == true) {
+    p9.setVisible(1);
+  }
+  else {
+    p9.setVisible(0);
+  }
+
 }
 
 void hideStatus() {
@@ -871,7 +1168,8 @@ void b109PopCallback(void *ptr) {
   pokretanjePrograma();
   modRada = EEPROM.read(123);
   hideStatus();
-  updateSatus();
+  updateStatus();
+  noviDan();
   trenutneVrednosti();
   timeTxt.setText(rtc.getTimeStr(FORMAT_SHORT));
   if (offTime == true) {
@@ -888,6 +1186,10 @@ void b109PopCallback(void *ptr) {
 
 void b1007PopCallback(void *ptr) {
   EEPROM.write(124, i);
+  prihranaS = false;
+  prihranaB = 0;
+  prihranaBM = 0;
+  EEPROM.write(188, 0);
 }
 
 void b1004PopCallback(void *ptr) {
@@ -915,30 +1217,30 @@ void b1005PopCallback(void *ptr) {
 
 }
 
-void b1006PopCallback(void *ptr) {
-  /*int state = EEPROM.read(118);
+/*int state = EEPROM.read(118);
     uint32_t tmp = 0;
     b802.getValue(&tmp);
     EEPROM.write(118,tmp);*/
+
+
+void b1006PopCallback(void *ptr) {
   if (prihrana == 0) {
     prihrana = true;
     EEPROM.write(224, 1);
-    digitalWrite(13, HIGH);
   }
   else {
     prihrana = false;
     EEPROM.write(224, 0);
-    digitalWrite(13, LOW);
   }
-
 }
 
 void b108PopCallback(void *ptr) {
-  int state;
-  state = EEPROM.read(224);
-  b1006.setValue(state);
+  //int state;
+  //state = EEPROM.read(224);
+  b1006.setValue(prihrana);
   int tmp = EEPROM.read(124);
   pNum.setValue(tmp);
+  i = 0;
 }
 
 /* STRANICA PRIHRANA KRAJ */
@@ -947,38 +1249,77 @@ void b108PopCallback(void *ptr) {
 /* STRANICA PODESAVANJE VREMENA */
 
 void b1602PopCallback(void *ptr) {
-  if (i < 23)
-  {
-    i++;
-    vNum1.setValue(i);
-  } else
-  {
-    i = 0;
-    vNum1.setValue(i);
+  if (mod == 0) {
+    if (i < 23)
+    {
+      i++;
+      vNum1.setValue(i);
+    } else
+    {
+      i = 0;
+      vNum1.setValue(i);
+    }
+  }
+  else {
+    if (i < 31)
+    {
+      i++;
+      vNum1.setValue(i);
+    } else
+    {
+      i = 0;
+      vNum1.setValue(i);
+    }
   }
 }
 
 void b1603PopCallback(void *ptr) {
-  if (i2 < 59)
-  {
-    i2++;
-    vNum2.setValue(i2);
-  } else
-  {
-    i2 = 0;
-    vNum2.setValue(i2);
+  if (mod == 0) {
+    if (i2 < 59)
+    {
+      i2++;
+      vNum2.setValue(i2);
+    } else
+    {
+      i2 = 0;
+      vNum2.setValue(i2);
+    }
+  }
+  else {
+    if (i2 < 12)
+    {
+      i2++;
+      vNum2.setValue(i2);
+    } else
+    {
+      i2 = 0;
+      vNum2.setValue(i2);
+    }
   }
 }
 
 void b1604PopCallback(void *ptr) {
-  if (i3 < 59)
-  {
-    i3++;
-    vNum3.setValue(i3);
-  } else
-  {
-    i3 = 0;
-    vNum3.setValue(i3);
+  if (mod == 0) {
+    if (i3 < 59)
+    {
+      i3++;
+      vNum3.setValue(i3);
+    } else
+    {
+      i3 = 0;
+      vNum3.setValue(i3);
+    }
+  }
+  else {
+    if (i3 < 99)
+    {
+      i3++;
+      vNum3.setValue(i3);
+    } else
+    {
+      i3 = 0;
+      vNum3.setValue(i3);
+    }
   }
 }
 
@@ -1019,11 +1360,55 @@ void b1607PopCallback(void *ptr) {
 }
 
 void b1608PopCallback(void *ptr) {
-  EEPROM.write(125, i);
-  EEPROM.write(126, i2);
-  EEPROM.write(127, i3);
-  rtc.setTime(i, i2, i3);
+  if (mod == 0) {
+    EEPROM.write(125, i);
+    EEPROM.write(126, i2);
+    EEPROM.write(127, i3);
+    rtc.setTime(i, i2, i3);
+    i = 0;
+    i2 = 0;
+    i3 = 0;
+    mod = 3;
+  }
+  if (mod == 1) {
+    EEPROM.write(180, i);
+    EEPROM.write(181, i2);
+    EEPROM.write(182, i3);
+    rtc.setDate(i, i2, (i3 + 2000));
+    i = 0;
+    i2 = 0;
+    i3 = 0;
+    mod = 3;
+  }
+
 }
+
+boolean datumIzmena = false;
+
+void bt1615PopCallback(void *ptr) {
+  if (datumIzmena == false) {
+    datumIzmena = true;
+    sendCommand("t1611.txt=\".\"");
+    sendCommand("t1613.txt=\".\"");
+    mod = 1;
+  }
+  else {
+    datumIzmena = false;
+    sendCommand("t1611.txt=\":\"");
+    sendCommand("t1613.txt=\":\"");
+    mod = 0;
+  }
+}
+
+void b207PopCallback(void *ptr) {
+  datumIzmena = false;
+  i = 0;
+  i2 = 0;
+  i3 = 0;
+  mod = 0;
+}
+
+
 
 
 /* STRANICA PODESAVANJE VREMENA KRAJ */
@@ -1293,7 +1678,16 @@ void b0PopCallback(void *ptr) {
   }
 }
 
+/* PODESAVANJE EKRANA KRAJ */
 
+/* FABRICKA PODESAVANJA */
+
+void t1304PopCallback(void *ptr) {
+  fabrickaP();
+}
+
+
+/* FABRICKA PODESAVANJA KRAJ*/
 
 
 void setup() {
@@ -1309,14 +1703,12 @@ void setup() {
 
   // Start the timer
   timer.start();
-  if (offTime == true) {
-    timer2.start();
-  }
+  timer2.start();
 
   nexInit();
   modRada = EEPROM.read(123);
   ucitajVrednosti();
- 
+
   hideStatus();
   setBrightness(brightness);
 
@@ -1380,6 +1772,8 @@ void setup() {
   b1606.attachPop(b1606PopCallback, &b1606);
   b1607.attachPop(b1607PopCallback, &b1607);
   b1608.attachPop(b1608PopCallback, &b1608);
+  b207.attachPop(b207PopCallback, &b207);
+  bt1615.attachPop(bt1615PopCallback, &bt1615);
 
   //PRIHRANA
 
@@ -1422,6 +1816,11 @@ void setup() {
   bt1702.attachPop(bt1702PopCallback, &bt1702);
   b208.attachPop(b208PopCallback, &b208);
 
+  //FABRICKA
+
+  t1304.attachPop(t1304PopCallback, &t1304);
+
+
   b0.attachPop(b0PopCallback, &b0);
 
 
@@ -1429,7 +1828,7 @@ void setup() {
   rtc.begin();
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(10, OUTPUT);
-  digitalWrite(10,HIGH);
+  digitalWrite(10, HIGH);
   pinMode(A0, INPUT);
   pinMode(A1, INPUT);
 
@@ -1439,18 +1838,24 @@ void setup() {
 }
 
 void trenutneVrednosti() {
+  EEPROM_readAnything(154, kalibracijaTmp);
+  EEPROM_readAnything(134, kalibracijaHum);
+  EEPROM_readAnything(144, kalibracijaHumZ);
   float t = dht.readTemperature();
+  t = t + (float)kalibracijaTmp;
   static char temperatureCTemp[3];
   dtostrf(t, 3, 0, temperatureCTemp);
   tempTxt.setText(temperatureCTemp);
 
   float h = dht.readHumidity();
+  h = h + (float)kalibracijaHum;
   static char humidityC[3];
   dtostrf(h, 3, 0, humidityC);
   humTxt.setText(humidityC);
 
   float hZS = analogRead(A1);
   float hZ = map(hZS, 650, 375, 0, 100);
+  hZ = hZ + (float)kalibracijaHumZ;
   static char humidityZ[3];
   dtostrf(hZ, 3, 0, humidityZ);
   humZTxt.setText(humidityZ);
