@@ -7,10 +7,14 @@
 #include "EEPROMAnything.h"
 #include <stdlib.h>
 #include <String.h>
+#include <SPI.h>
+#include <SD.h>
+
 
 Timer timer;
 Timer timer2;
 Timer timer3;
+
 
 
 NexText tempTxt = NexText(0, 7, "t3");
@@ -153,6 +157,15 @@ NexNumber b208 = NexNumber(2, 10, "b208");
 
 NexDSButton t1304 = NexDSButton(13, 4, "t1304");
 
+//PRIKAZ GRESKE
+
+NexText t1802 = NexText(18, 4, "t1802");
+NexText t1803 = NexText(18, 5, "t1803");
+NexButton b1801 = NexButton(18, 7, "b1801");
+NexButton b1802 = NexButton(18, 6, "b1802");
+
+
+
 #define DHTPIN 2
 #define DHTTYPE DHT22
 
@@ -175,6 +188,7 @@ boolean pistalica;
 boolean proximity;
 boolean ventilator;
 boolean ventilatorS;
+boolean greska = false;
 boolean offTime;
 int brightness;
 int screenTime = EEPROM.read(150);
@@ -202,6 +216,15 @@ int humG;
 int humD;
 int navodnjavanjeBR = EEPROM.read(189);
 char datumP[10];
+int greskabr = 0;
+boolean sdOK = false;
+
+//String errors[] = {"Nema vode", "Senzor vlage neispravan", "Senzor temperature neispravan", "Senzor vlaznosti vazduha neispravan", "RTC"};
+//
+String errors_codes[] = {"E109", "E201", "E202", "E203", "E301"};
+int errors_num[10];
+
+
 
 int modRada = EEPROM.read(123);
 
@@ -297,6 +320,8 @@ NexTouch *nex_listen_list[] = {
   &bt1615,
   &b207,
   &t1304,
+  &b1801,
+  &b1802,
   NULL
 };
 
@@ -597,6 +622,48 @@ void noviDan() {
     //Serial.print(prihranaBM);
   }
 }
+
+void upisiULog(int tmp, int hum, int humZ) {
+  File tmpLog, humLog, humZLog;
+
+  tmpLog = SD.open("tmpLog.txt", FILE_WRITE);
+  if (tmpLog) {
+    tmpLog.println(" ");
+    tmpLog.print("[");
+    tmpLog.print(rtc.getTimeStr());
+    tmpLog.print(" ");
+    tmpLog.print(rtc.getDateStr());
+    tmpLog.print("] ");
+    tmpLog.print(tmp);
+    tmpLog.close();
+  }
+
+  humLog = SD.open("humLog.txt", FILE_WRITE);
+  if (humLog) {
+    humLog.println(" ");
+    humLog.print("[");
+    humLog.print(rtc.getTimeStr());
+    humLog.print(" ");
+    humLog.print(rtc.getDateStr());
+    humLog.print("] ");
+    humLog.print(hum);
+    humLog.close();
+  }
+
+  humZLog = SD.open("humZLog.txt", FILE_WRITE);
+  if (humZLog) {
+    humZLog.println(" ");
+    humZLog.print("[");
+    humZLog.print(rtc.getTimeStr());
+    humZLog.print(" ");
+    humZLog.print(rtc.getDateStr());
+    humZLog.print("] ");
+    humZLog.print(humZ);
+    humZLog.close();
+  }
+
+}
+
 /* VREMENSKE (TIMER) FUNKCIJE */
 
 void helloCallback() {
@@ -605,7 +672,8 @@ void helloCallback() {
   updateStatus();
   timeTxt.setText(rtc.getTimeStr(FORMAT_SHORT));
   noviDan();
-
+  //Serial.print("GRESKA>");
+  //Serial.print(greska);
 }
 
 void helloCallback2() {
@@ -615,7 +683,7 @@ void helloCallback2() {
 
 void getProximityStatus() {
   int val = analogRead(A8);
-  if (val > 250) {
+  if (val > 400) {
     sendCommand("sleep=0");
     timer3.stop();
     timer2.stop();
@@ -1100,6 +1168,36 @@ void updateStatus() {
   }
   else {
     p9.setVisible(0);
+  }
+
+
+  switch (modRada) {
+    case 0:
+      p3.setVisible(0);
+      p4.setVisible(0);
+      p5.setVisible(0);
+      break;
+    case 1:
+      p3.setVisible(0);
+      p5.setVisible(0);
+      p6.setVisible(0);
+      break;
+    case 2:
+      p4.setVisible(0);
+      p5.setVisible(0);
+      p6.setVisible(0);
+      break;
+    case 3:
+      p3.setVisible(0);
+      p4.setVisible(0);
+      p6.setVisible(0);
+      break;
+    default:
+      p3.setVisible(0);
+      p4.setVisible(0);
+      p5.setVisible(0);
+      p6.setVisible(0);
+      break;
   }
 
 }
@@ -1689,11 +1787,26 @@ void t1304PopCallback(void *ptr) {
 
 /* FABRICKA PODESAVANJA KRAJ*/
 
+/* PRIKAZ GRESKE */
+
+void b1801PopCallback(void *ptr) {
+  i++;
+}
+
+void b1802PopCallback(void *ptr) {
+  i--;
+}
+
+
+
+
+/* PPIKAZ GRESKE KRAJ */
+
 
 void setup() {
   Serial.begin(9600);
   sendCommand("thup=1");
-  timer.setInterval(20000);
+  timer.setInterval(10000);
   setScreenTime(screenTime);
   timer3.setInterval(500);
   // The function to be called
@@ -1820,14 +1933,27 @@ void setup() {
 
   t1304.attachPop(t1304PopCallback, &t1304);
 
+  //PRIKAZ GRESKE
+  b1801.attachPop(b1801PopCallback, &b1801);
+  b1802.attachPop(b1802PopCallback, &b1802);
 
   b0.attachPop(b0PopCallback, &b0);
 
+
+  if (!SD.begin(53)) {
+    //Serial.println("initialization failed!");
+    //while (1);
+  }
+  else {
+    sdOK = true;
+  }
+  Serial.println("initialization done.");
 
   dht.begin();
   rtc.begin();
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(10, OUTPUT);
+  pinMode(53, OUTPUT);
   digitalWrite(10, HIGH);
   pinMode(A0, INPUT);
   pinMode(A1, INPUT);
@@ -1837,6 +1963,7 @@ void setup() {
   Serial.write(0xff);
 }
 
+int brL=0;
 void trenutneVrednosti() {
   EEPROM_readAnything(154, kalibracijaTmp);
   EEPROM_readAnything(134, kalibracijaHum);
@@ -1858,7 +1985,22 @@ void trenutneVrednosti() {
   hZ = hZ + (float)kalibracijaHumZ;
   static char humidityZ[3];
   dtostrf(hZ, 3, 0, humidityZ);
-  humZTxt.setText(humidityZ);
+  if (hZ >= 0 and hZ <= 100) {
+    humZTxt.setText(humidityZ);
+    //p10.setVisible(0);
+  }
+  else {
+    //EEPROM.write(250,greska);
+    humZTxt.setText("n/a");
+    // p10.setVisible(1);
+  }
+  brL++;
+  if (sdOK == true) {
+    if(brL==60){
+    upisiULog(t, h, hZ);
+    brL=0;
+    }
+  }
 }
 
 
