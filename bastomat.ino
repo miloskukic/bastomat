@@ -14,6 +14,7 @@
 Timer timer;
 Timer timer2;
 Timer timer3;
+Timer timer4;
 
 
 
@@ -164,7 +165,11 @@ NexText t1803 = NexText(18, 5, "t1803");
 NexButton b1801 = NexButton(18, 7, "b1801");
 NexButton b1802 = NexButton(18, 6, "b1802");
 
+//STATISTIKA
 
+NexButton b203 = NexButton(2, 1, "b203");
+NexButton b1106 = NexButton(11, 6, "b1106");
+NexNumber n1105 = NexNumber(11, 5, "n1105");
 
 #define DHTPIN 2
 #define DHTTYPE DHT22
@@ -322,6 +327,8 @@ NexTouch *nex_listen_list[] = {
   &t1304,
   &b1801,
   &b1802,
+  &b203,
+  &b1106,
   NULL
 };
 
@@ -440,11 +447,7 @@ void substr(char s[], char sub[], int p, int l) {
   sub[c] = '\0';
 }
 
-
-
-
-
-
+int cbr=0;
 void vremenskoNavodnjavanje() {
   String pocetno_vreme, zavrsno_vreme;
   String trenutno_vreme = rtc.getTimeStr(FORMAT_SHORT);
@@ -478,10 +481,15 @@ void vremenskoNavodnjavanje() {
   if (trenutno_vreme.equals(pocetno_vreme)) {
     digitalWrite(10, LOW);
     navodnjavanje = true;
+    cbr==1;
   }
   if (trenutno_vreme.equals(zavrsno_vreme)) {
     digitalWrite(10, HIGH);
     navodnjavanje = false;
+    if(cbr==1){
+    dodajBrojPokretanja();
+    cbr==2;
+    }
   }
 }
 
@@ -557,6 +565,7 @@ void automatskoNavodnjavanje() {
   if (hZ >= vlZG) {
     digitalWrite(10, HIGH);
     navodnjavanje = false;
+    dodajBrojPokretanja();
   }
 
 }
@@ -623,8 +632,54 @@ void noviDan() {
   }
 }
 
-void upisiULog(int tmp, int hum, int humZ) {
+
+/* VREMENSKE (TIMER) FUNKCIJE */
+
+void helloCallback() {
+  trenutneVrednosti();
+  pokretanjePrograma();
+  updateStatus();
+  timeTxt.setText(rtc.getTimeStr(FORMAT_SHORT));
+  noviDan();
+  //Serial.print("GRESKA>");
+  //Serial.print(greska);
+}
+
+void helloCallback2() {
+  sendCommand("sleep=1");
+  pokretanjePrograma();
+
+  timer3.start();
+}
+
+void getProximityStatus() {
+  int val = analogRead(A8);
+  if (val > 300) {
+    sendCommand("sleep=0");
+    timer3.stop();
+    timer2.stop();
+    timer2.start();
+  }
+
+}
+
+void upisiULog() {
+  float tmp, hum, humZ;
   File tmpLog, humLog, humZLog;
+
+  EEPROM_readAnything(154, kalibracijaTmp);
+  EEPROM_readAnything(134, kalibracijaHum);
+  EEPROM_readAnything(144, kalibracijaHumZ);
+  tmp = dht.readTemperature();
+  tmp = tmp + (float)kalibracijaTmp;
+
+  hum = dht.readHumidity();
+  hum = hum + (float)kalibracijaHum;
+
+  float hZS = analogRead(A1);
+  humZ = map(hZS, 650, 375, 0, 100);
+  humZ = humZ + (float)kalibracijaHumZ;
+
 
   tmpLog = SD.open("tmpLog.txt", FILE_WRITE);
   if (tmpLog) {
@@ -664,33 +719,6 @@ void upisiULog(int tmp, int hum, int humZ) {
 
 }
 
-/* VREMENSKE (TIMER) FUNKCIJE */
-
-void helloCallback() {
-  trenutneVrednosti();
-  pokretanjePrograma();
-  updateStatus();
-  timeTxt.setText(rtc.getTimeStr(FORMAT_SHORT));
-  noviDan();
-  //Serial.print("GRESKA>");
-  //Serial.print(greska);
-}
-
-void helloCallback2() {
-  sendCommand("sleep=1");
-  timer3.start();
-}
-
-void getProximityStatus() {
-  int val = analogRead(A8);
-  if (val > 400) {
-    sendCommand("sleep=0");
-    timer3.stop();
-    timer2.stop();
-    timer2.start();
-  }
-
-}
 
 /* VREMENSKE FUNKCIJE KRAJ*/
 
@@ -1802,6 +1830,87 @@ void b1802PopCallback(void *ptr) {
 
 /* PPIKAZ GRESKE KRAJ */
 
+/* STATISTIKA */
+
+void b203PopCallback(void *ptr) {
+  int broj;
+  String buff;
+  char myCharArry[30];
+  File myFile;
+  myFile = SD.open("statBr.txt");
+  if (myFile) {
+    while (myFile.available()) {
+      buff += (char)myFile.read();
+    }
+    for (int i = 0; i < buff.length(); i++) {
+      myCharArry[i] = buff[i];
+    }
+    broj = atoi(myCharArry);
+    Serial.print("n1105.val=");
+    Serial.print(broj);
+    Serial.write(0xff);
+    Serial.write(0xff);
+    Serial.write(0xff);
+  }
+  else {
+    Serial.print("n1105.val=0");
+    Serial.write(0xff);
+    Serial.write(0xff);
+    Serial.write(0xff);
+  }
+}
+
+void b1106PopCallback(void *ptr) {
+  upisiBrojPokretanja(0);
+}
+
+void dodajBrojPokretanja(){
+  int broj=0;
+  broj=ucitajBrojPokretanja();
+  broj++;
+  upisiBrojPokretanja(broj);
+}
+
+int ucitajBrojPokretanja(){
+  int broj;
+  String buff;
+  char myCharArry[30];
+  File myFile;
+  myFile = SD.open("statBr.txt");
+  if (myFile) {
+    while (myFile.available()) {
+      buff += (char)myFile.read();
+    }
+    for (int i = 0; i < buff.length(); i++) {
+      myCharArry[i] = buff[i];
+    }
+    broj = atoi(myCharArry);
+    return broj;
+  }
+  else {
+    return 0;
+  }
+}
+
+void upisiBrojPokretanja(int broj) {
+  File myFile;
+  if (SD.exists("statBr.txt")) {
+    SD.remove("statBr.txt");
+  }
+   myFile = SD.open("statBr.txt",FILE_WRITE);
+    myFile.println(broj);
+    myFile.close();
+    Serial.print("n1105.val=0");
+    Serial.write(0xff);
+    Serial.write(0xff);
+    Serial.write(0xff);
+    myFile.close();
+}
+
+
+
+/* STATISTIKA KRAJ */
+
 
 void setup() {
   Serial.begin(9600);
@@ -1809,10 +1918,12 @@ void setup() {
   timer.setInterval(10000);
   setScreenTime(screenTime);
   timer3.setInterval(500);
+  timer4.setInterval(600000);
   // The function to be called
   timer.setCallback(helloCallback);
   timer2.setCallback(helloCallback2);
   timer3.setCallback(getProximityStatus);
+  timer4.setCallback(upisiULog);
 
   // Start the timer
   timer.start();
@@ -1933,6 +2044,11 @@ void setup() {
 
   t1304.attachPop(t1304PopCallback, &t1304);
 
+  //STATISTIKA
+
+  b203.attachPop(b203PopCallback, &b203);
+  b1106.attachPop(b1106PopCallback, &b1106);
+
   //PRIKAZ GRESKE
   b1801.attachPop(b1801PopCallback, &b1801);
   b1802.attachPop(b1802PopCallback, &b1802);
@@ -1946,6 +2062,7 @@ void setup() {
   }
   else {
     sdOK = true;
+    timer4.start();
   }
   Serial.println("initialization done.");
 
@@ -1963,7 +2080,7 @@ void setup() {
   Serial.write(0xff);
 }
 
-int brL=0;
+
 void trenutneVrednosti() {
   EEPROM_readAnything(154, kalibracijaTmp);
   EEPROM_readAnything(134, kalibracijaHum);
@@ -1994,13 +2111,6 @@ void trenutneVrednosti() {
     humZTxt.setText("n/a");
     // p10.setVisible(1);
   }
-  brL++;
-  if (sdOK == true) {
-    if(brL==60){
-    upisiULog(t, h, hZ);
-    brL=0;
-    }
-  }
 }
 
 
@@ -2023,6 +2133,9 @@ void loop() {
   }
   if (proximity == true) {
     timer3.update();
+  }
+  if (sdOK == true) {
+    timer4.update();
   }
   //huNum.setVisible(0);
   // reads the value of the sharp sensor
