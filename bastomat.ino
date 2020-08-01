@@ -170,8 +170,11 @@ NexButton b1802 = NexButton(18, 6, "b1802");
 NexButton b203 = NexButton(2, 1, "b203");
 NexButton b1106 = NexButton(11, 6, "b1106");
 NexNumber n1105 = NexNumber(11, 5, "n1105");
+NexButton b1103 = NexButton(11, 4, "b1103");
+NexButton b1501 = NexButton(15, 20, "b1501");
 
-#define DHTPIN 2
+
+#define DHTPIN 8
 #define DHTTYPE DHT22
 
 
@@ -329,6 +332,8 @@ NexTouch *nex_listen_list[] = {
   &b1802,
   &b203,
   &b1106,
+  &b1103,
+  &b1501,
   NULL
 };
 
@@ -447,7 +452,7 @@ void substr(char s[], char sub[], int p, int l) {
   sub[c] = '\0';
 }
 
-int cbr=0;
+int cbr = 0;
 void vremenskoNavodnjavanje() {
   String pocetno_vreme, zavrsno_vreme;
   String trenutno_vreme = rtc.getTimeStr(FORMAT_SHORT);
@@ -479,27 +484,27 @@ void vremenskoNavodnjavanje() {
   }
 
   if (trenutno_vreme.equals(pocetno_vreme)) {
-    digitalWrite(10, LOW);
+    digitalWrite(5, LOW);
     navodnjavanje = true;
-    cbr==1;
+    cbr == 1;
   }
   if (trenutno_vreme.equals(zavrsno_vreme)) {
-    digitalWrite(10, HIGH);
+    digitalWrite(5, HIGH);
     navodnjavanje = false;
-    if(cbr==1){
-    dodajBrojPokretanja();
-    cbr==2;
+    if (cbr == 1) {
+      dodajBrojPokretanja();
+      cbr == 2;
     }
   }
 }
 
 void rucnoNavodnjavanje() {
-  digitalWrite(10, LOW);
+  digitalWrite(5, LOW);
   navodnjavanje = true;
 }
 
 void rezimOdmora() {
-  digitalWrite(10, HIGH);
+  digitalWrite(5, HIGH);
   navodnjavanje = false;
 }
 
@@ -558,12 +563,12 @@ void automatskoNavodnjavanje() {
 
   if ((hum <= humD and hum >= humG) and (tmp <= tmpG and tmp >= tmpD)) {
     if (hZ <= vlZD) {
-      digitalWrite(10, LOW);
+      digitalWrite(5, LOW);
       navodnjavanje = true;
     }
   }
   if (hZ >= vlZG) {
-    digitalWrite(10, HIGH);
+    digitalWrite(5, HIGH);
     navodnjavanje = false;
     dodajBrojPokretanja();
   }
@@ -653,7 +658,7 @@ void helloCallback2() {
 }
 
 void getProximityStatus() {
-  int val = analogRead(A8);
+  int val = analogRead(A0);
   if (val > 300) {
     sendCommand("sleep=0");
     timer3.stop();
@@ -1546,11 +1551,11 @@ void b207PopCallback(void *ptr) {
 void bt201PopCallback(void *ptr) {
   if (ventilTest == false) {
     ventilTest = true;
-    digitalWrite(10, LOW);
+    digitalWrite(5, LOW);
   }
   else {
     ventilTest = false;
-    digitalWrite(10, HIGH);
+    digitalWrite(5, HIGH);
   }
 }
 
@@ -1864,14 +1869,14 @@ void b1106PopCallback(void *ptr) {
   upisiBrojPokretanja(0);
 }
 
-void dodajBrojPokretanja(){
-  int broj=0;
-  broj=ucitajBrojPokretanja();
+void dodajBrojPokretanja() {
+  int broj = 0;
+  broj = ucitajBrojPokretanja();
   broj++;
   upisiBrojPokretanja(broj);
 }
 
-int ucitajBrojPokretanja(){
+int ucitajBrojPokretanja() {
   int broj;
   String buff;
   char myCharArry[30];
@@ -1897,14 +1902,194 @@ void upisiBrojPokretanja(int broj) {
   if (SD.exists("statBr.txt")) {
     SD.remove("statBr.txt");
   }
-   myFile = SD.open("statBr.txt",FILE_WRITE);
-    myFile.println(broj);
-    myFile.close();
+  myFile = SD.open("statBr.txt", FILE_WRITE);
+  myFile.println(broj);
+  myFile.close();
+  Serial.print("n1105.val=0");
+  Serial.write(0xff);
+  Serial.write(0xff);
+  Serial.write(0xff);
+  myFile.close();
+}
+
+void b1501PopCallback(void *ptr) {
+  int broj;
+  String buff;
+  char myCharArry[30];
+  File myFile;
+  myFile = SD.open("statBr.txt");
+  if (myFile) {
+    while (myFile.available()) {
+      buff += (char)myFile.read();
+    }
+    for (int i = 0; i < buff.length(); i++) {
+      myCharArry[i] = buff[i];
+    }
+    broj = atoi(myCharArry);
+    Serial.print("n1105.val=");
+    Serial.print(broj);
+    Serial.write(0xff);
+    Serial.write(0xff);
+    Serial.write(0xff);
+  }
+  else {
     Serial.print("n1105.val=0");
     Serial.write(0xff);
     Serial.write(0xff);
     Serial.write(0xff);
+  }
+}
+
+void b1103PopCallback(void *ptr) {
+  prosecnaTemperatura("t1511","HUMLOGC.txt");
+  maxTemperatura("t1510","HUMLOGC.txt");
+  minTemperatura("t1509","HUMLOGC.txt");
+}
+
+
+
+void prosecnaTemperatura(String componentName,String file) {
+  String buff;
+  char myCharArry[30];
+  int broj;
+  float sum,avg;
+  int maxB;
+  int br = 0, br2 = 0;
+  File myFile;
+  myFile = SD.open(file);
+  if (myFile) {
+    start:;
+    while (myFile.available()) {
+     
+      buff += (char)myFile.read();
+      if (br2 == 3) {
+        for (int i = 0; i <= buff.length()-1; i++) {
+          myCharArry[i] = buff[i];
+        }
+        broj = atoi(myCharArry);
+        sum+=broj;
+        br2 = 0;
+        buff = "";
+        memset(myCharArry, 0, sizeof myCharArry);
+        goto start;
+      }
+      br++;
+      br2++;
+
+    }
+    avg=sum/br;
+    /*Serial.println("SUM >>> ");
+    Serial.println(sum);
+    Serial.println(" <<< ");
+    Serial.println("BR >>> ");
+    Serial.println(br);
+    Serial.println(" <<< ");
+    Serial.println("AVG >>> ");
+    Serial.println(avg);
+    Serial.println(" <<< ");*/
+    Serial.print(componentName);
+    Serial.print(".txt=\"");
+    Serial.print((int)avg);
+    Serial.print("\"");
+    Serial.write(0xff);
+    Serial.write(0xff);
+    Serial.write(0xff);
+     myFile.close();
+  }
+
+
+}
+
+
+void maxTemperatura(String componentName,String file) {
+  String buff;
+  char myCharArry[30];
+  int broj;
+  int maxB;
+  int br = 0, br2 = 0;
+  File myFile;
+  myFile = SD.open(file);
+  if (myFile) {
+    start:;
+    while (myFile.available()) {
+     
+      buff += (char)myFile.read();
+      if (br2 == 3) {
+        for (int i = 0; i <= buff.length()-1; i++) {
+          myCharArry[i] = buff[i];
+        }
+        broj = atoi(myCharArry);
+        if (broj > maxB) {
+          maxB = broj;
+        }
+        br2 = 0;
+        buff = "";
+        memset(myCharArry, 0, sizeof myCharArry);
+        goto start;
+      }
+      br++;
+      br2++;
+
+    }
+    /*Serial.println("MAX BR >>> ");
+    Serial.println(maxB);
+    Serial.println(" <<< ");*/
+    Serial.print(componentName);
+    Serial.print(".txt=\"");
+    Serial.print(maxB);
+    Serial.print("\"");
+    Serial.write(0xff);
+    Serial.write(0xff);
+    Serial.write(0xff);
+     myFile.close();
+  }
+}
+
+void minTemperatura(String componentName,String file) {
+ String buff;
+  char myCharArry[30];
+  int broj;
+  int minB;
+  int br = 0, br2 = 0;
+  File myFile;
+  myFile = SD.open(file);
+  if (myFile) {
+    start:;
+    while (myFile.available()) {
+     
+      buff += (char)myFile.read();
+      if (br2 == 3) {
+        for (int i = 0; i <= buff.length()-1; i++) {
+          myCharArry[i] = buff[i];
+        }
+        broj = atoi(myCharArry);
+        if(br==3){
+          minB = broj;
+        }
+        if (broj < minB) {
+          minB = broj;
+        }
+        br2 = 0;
+        buff = "";
+        memset(myCharArry, 0, sizeof myCharArry);
+        goto start;
+      }
+      br++;
+      br2++;
+
+    }
+    /*Serial.println("MIN BR >>> ");
+    Serial.println(minB);
+    Serial.println(" <<< ");*/
+    Serial.print(componentName);
+    Serial.print(".txt=\"");
+    Serial.print(minB);
+    Serial.print("\"");
+    Serial.write(0xff);
+    Serial.write(0xff);
+    Serial.write(0xff);
     myFile.close();
+  }
 }
 
 
@@ -2048,6 +2233,8 @@ void setup() {
 
   b203.attachPop(b203PopCallback, &b203);
   b1106.attachPop(b1106PopCallback, &b1106);
+  b1103.attachPop(b1103PopCallback, &b1103);
+  b1501.attachPop(b1501PopCallback, &b1501);
 
   //PRIKAZ GRESKE
   b1801.attachPop(b1801PopCallback, &b1801);
@@ -2069,9 +2256,9 @@ void setup() {
   dht.begin();
   rtc.begin();
   pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(10, OUTPUT);
+  pinMode(5, OUTPUT);
   pinMode(53, OUTPUT);
-  digitalWrite(10, HIGH);
+  digitalWrite(5, HIGH);
   pinMode(A0, INPUT);
   pinMode(A1, INPUT);
 
