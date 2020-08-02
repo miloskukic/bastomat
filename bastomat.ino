@@ -453,6 +453,8 @@ void substr(char s[], char sub[], int p, int l) {
 }
 
 int cbr = 0;
+
+bool pokrenuto = false;
 void vremenskoNavodnjavanje() {
   String pocetno_vreme, zavrsno_vreme;
   String trenutno_vreme = rtc.getTimeStr(FORMAT_SHORT);
@@ -483,10 +485,15 @@ void vremenskoNavodnjavanje() {
     }
   }
 
+ 
   if (trenutno_vreme.equals(pocetno_vreme)) {
     digitalWrite(5, LOW);
     navodnjavanje = true;
     cbr == 1;
+    if (pokrenuto == false) {
+      upisiLog("Navodnjavanje pokrenuto");
+    }
+    pokrenuto = true;
   }
   if (trenutno_vreme.equals(zavrsno_vreme)) {
     digitalWrite(5, HIGH);
@@ -495,19 +502,32 @@ void vremenskoNavodnjavanje() {
       dodajBrojPokretanja();
       cbr == 2;
     }
+    if (pokrenuto == true) {
+      upisiLog("Navodnjavanje završeno");
+    }
+    pokrenuto = false;
+
   }
 }
 
 void rucnoNavodnjavanje() {
   digitalWrite(5, LOW);
+   if (navodnjavanje == false) {
+    upisiLog("Ručni režim aktiviran.");
+  }
   navodnjavanje = true;
 }
 
 void rezimOdmora() {
   digitalWrite(5, HIGH);
+  if (navodnjavanje == true) {
+    upisiLog("Režim odmora aktiviran.");
+  }
   navodnjavanje = false;
+  pokrenuto = false;
 }
 
+bool pokrenutoV=false;
 void ventilatorF() {
   float tmp, hum;
   tmp = dht.readTemperature();
@@ -517,24 +537,41 @@ void ventilatorF() {
   if (tmp > vTmp or hum > vHum) {
     digitalWrite(11, LOW);
     ventilatorS = true;
+    if (pokrenutoV == false) {
+      upisiLog("Ventilator uključen");
+    }
+    pokrenutoV=true;
   }
   else {
     digitalWrite(11, HIGH);
     ventilatorS = false;
+     if (pokrenutoV == true) {
+      upisiLog("Ventilator isključen");
+    }
+    pokrenutoV=false;
   }
 }
 
 void zimskiF() {
   float tmp;
+  bool pokrenuto = false;
   tmp = dht.readTemperature();
   tmp = tmp + (float)kalibracijaTmp;
   if (tmp <= zmTmpG and tmp >= zmTmpD) {
     digitalWrite(12, LOW);
     zimskiS = true;
+    if (pokrenuto == false) {
+      upisiLog("Zimski režim zaštite pokrenut");
+      pokrenuto = true;
+    }
   }
   else {
     digitalWrite(12, HIGH);
+    if (pokrenuto == true) {
+      upisiLog("Zimski režim zaštite ugasen");
+    }
     zimskiS = false;
+    pokrenuto = false;
   }
 }
 
@@ -560,17 +597,24 @@ void automatskoNavodnjavanje() {
   float hZ = map(hZS, 650, 375, 0, 100);
   hZ = hZ + (float)kalibracijaHumZ;
 
-
   if ((hum <= humD and hum >= humG) and (tmp <= tmpG and tmp >= tmpD)) {
     if (hZ <= vlZD) {
       digitalWrite(5, LOW);
       navodnjavanje = true;
+      if (pokrenuto == false) {
+        upisiLog("Navodnjavanje pokrenuto");
+        pokrenuto = true;
+      }
     }
   }
   if (hZ >= vlZG) {
     digitalWrite(5, HIGH);
     navodnjavanje = false;
     dodajBrojPokretanja();
+    if (pokrenuto == true) {
+      upisiLog("Navodnjavanje završeno");
+    }
+    pokrenuto = false;
   }
 
 }
@@ -668,9 +712,24 @@ void getProximityStatus() {
 
 }
 
+void upisiLog(String poruka) {
+  File Log;
+  Log = SD.open("Log.txt", FILE_WRITE);
+  if (Log) {
+    Log.println(" ");
+    Log.print("[");
+    Log.print(rtc.getTimeStr());
+    Log.print(" ");
+    Log.print(rtc.getDateStr());
+    Log.print("] ");
+    Log.print(poruka);
+    Log.close();
+  }
+}
+
 void upisiULog() {
   float tmp, hum, humZ;
-  File tmpLog, humLog, humZLog;
+  File tmpLog, humLog, humZLog, tmpLogC, humLogC, humZLogC;
 
   EEPROM_readAnything(154, kalibracijaTmp);
   EEPROM_readAnything(134, kalibracijaHum);
@@ -697,6 +756,11 @@ void upisiULog() {
     tmpLog.print(tmp);
     tmpLog.close();
   }
+  tmpLogC = SD.open("tmpLogC.txt", FILE_WRITE);
+  if (tmpLogC) {
+    tmpLogC.println((int)tmp);
+    tmpLogC.close();
+  }
 
   humLog = SD.open("humLog.txt", FILE_WRITE);
   if (humLog) {
@@ -709,6 +773,11 @@ void upisiULog() {
     humLog.print(hum);
     humLog.close();
   }
+  humLogC = SD.open("humLogC.txt", FILE_WRITE);
+  if (humLogC) {
+    humLogC.println((int)hum);
+    humLogC.close();
+  }
 
   humZLog = SD.open("humZLog.txt", FILE_WRITE);
   if (humZLog) {
@@ -720,6 +789,11 @@ void upisiULog() {
     humZLog.print("] ");
     humZLog.print(humZ);
     humZLog.close();
+  }
+  humZLogC = SD.open("humZLogC.txt", FILE_WRITE);
+  if (humZLogC) {
+    humZLogC.println((int)humZ);
+    humZLogC.close();
   }
 
 }
@@ -1941,33 +2015,39 @@ void b1501PopCallback(void *ptr) {
 }
 
 void b1103PopCallback(void *ptr) {
-  prosecnaTemperatura("t1511","HUMLOGC.txt");
-  maxTemperatura("t1510","HUMLOGC.txt");
-  minTemperatura("t1509","HUMLOGC.txt");
+  avgS("t1511", "tmpLogC.txt");
+  maxS("t1510", "tmpLogC.txt");
+  minS("t1509", "tmpLogC.txt");
+  avgS("t154", "humZLogC.txt");
+  maxS("t1513", "humZLogC.txt");
+  minS("t1512", "humZLogC.txt");
+  avgS("t1517", "humLogC.txt");
+  maxS("t1516", "humLogC.txt");
+  minS("t1515", "humLogC.txt");
 }
 
 
 
-void prosecnaTemperatura(String componentName,String file) {
+void avgS(String componentName, String file) {
   String buff;
   char myCharArry[30];
   int broj;
-  float sum,avg;
+  float sum, avg;
   int maxB;
   int br = 0, br2 = 0;
   File myFile;
   myFile = SD.open(file);
   if (myFile) {
-    start:;
+start:;
     while (myFile.available()) {
-     
+
       buff += (char)myFile.read();
       if (br2 == 3) {
-        for (int i = 0; i <= buff.length()-1; i++) {
+        for (int i = 0; i <= buff.length() - 1; i++) {
           myCharArry[i] = buff[i];
         }
         broj = atoi(myCharArry);
-        sum+=broj;
+        sum += broj;
         br2 = 0;
         buff = "";
         memset(myCharArry, 0, sizeof myCharArry);
@@ -1977,16 +2057,16 @@ void prosecnaTemperatura(String componentName,String file) {
       br2++;
 
     }
-    avg=sum/br;
+    avg = sum / br;
     /*Serial.println("SUM >>> ");
-    Serial.println(sum);
-    Serial.println(" <<< ");
-    Serial.println("BR >>> ");
-    Serial.println(br);
-    Serial.println(" <<< ");
-    Serial.println("AVG >>> ");
-    Serial.println(avg);
-    Serial.println(" <<< ");*/
+      Serial.println(sum);
+      Serial.println(" <<< ");
+      Serial.println("BR >>> ");
+      Serial.println(br);
+      Serial.println(" <<< ");
+      Serial.println("AVG >>> ");
+      Serial.println(avg);
+      Serial.println(" <<< ");*/
     Serial.print(componentName);
     Serial.print(".txt=\"");
     Serial.print((int)avg);
@@ -1994,14 +2074,14 @@ void prosecnaTemperatura(String componentName,String file) {
     Serial.write(0xff);
     Serial.write(0xff);
     Serial.write(0xff);
-     myFile.close();
+    myFile.close();
   }
 
 
 }
 
 
-void maxTemperatura(String componentName,String file) {
+void maxS(String componentName, String file) {
   String buff;
   char myCharArry[30];
   int broj;
@@ -2010,12 +2090,12 @@ void maxTemperatura(String componentName,String file) {
   File myFile;
   myFile = SD.open(file);
   if (myFile) {
-    start:;
+start:;
     while (myFile.available()) {
-     
+
       buff += (char)myFile.read();
       if (br2 == 3) {
-        for (int i = 0; i <= buff.length()-1; i++) {
+        for (int i = 0; i <= buff.length() - 1; i++) {
           myCharArry[i] = buff[i];
         }
         broj = atoi(myCharArry);
@@ -2032,8 +2112,8 @@ void maxTemperatura(String componentName,String file) {
 
     }
     /*Serial.println("MAX BR >>> ");
-    Serial.println(maxB);
-    Serial.println(" <<< ");*/
+      Serial.println(maxB);
+      Serial.println(" <<< ");*/
     Serial.print(componentName);
     Serial.print(".txt=\"");
     Serial.print(maxB);
@@ -2041,12 +2121,12 @@ void maxTemperatura(String componentName,String file) {
     Serial.write(0xff);
     Serial.write(0xff);
     Serial.write(0xff);
-     myFile.close();
+    myFile.close();
   }
 }
 
-void minTemperatura(String componentName,String file) {
- String buff;
+void minS(String componentName, String file) {
+  String buff;
   char myCharArry[30];
   int broj;
   int minB;
@@ -2054,16 +2134,16 @@ void minTemperatura(String componentName,String file) {
   File myFile;
   myFile = SD.open(file);
   if (myFile) {
-    start:;
+start:;
     while (myFile.available()) {
-     
+
       buff += (char)myFile.read();
       if (br2 == 3) {
-        for (int i = 0; i <= buff.length()-1; i++) {
+        for (int i = 0; i <= buff.length() - 1; i++) {
           myCharArry[i] = buff[i];
         }
         broj = atoi(myCharArry);
-        if(br==3){
+        if (br == 3) {
           minB = broj;
         }
         if (broj < minB) {
@@ -2079,8 +2159,8 @@ void minTemperatura(String componentName,String file) {
 
     }
     /*Serial.println("MIN BR >>> ");
-    Serial.println(minB);
-    Serial.println(" <<< ");*/
+      Serial.println(minB);
+      Serial.println(" <<< ");*/
     Serial.print(componentName);
     Serial.print(".txt=\"");
     Serial.print(minB);
