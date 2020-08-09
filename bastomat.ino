@@ -11,6 +11,7 @@
 #include <SD.h>
 
 
+
 Timer timer;
 Timer timer2;
 Timer timer3;
@@ -485,13 +486,17 @@ void vremenskoNavodnjavanje() {
     }
   }
 
- 
+
   if (trenutno_vreme.equals(pocetno_vreme)) {
     digitalWrite(5, LOW);
     navodnjavanje = true;
     cbr == 1;
     if (pokrenuto == false) {
-      upisiLog("Navodnjavanje pokrenuto");
+      upisiLog("Vremensko navodnjavanje pokrenuto");
+      dodajBrojPokretanja();
+      if (pistalica == true) {
+        pistalicaF();
+      }
     }
     pokrenuto = true;
   }
@@ -503,7 +508,10 @@ void vremenskoNavodnjavanje() {
       cbr == 2;
     }
     if (pokrenuto == true) {
-      upisiLog("Navodnjavanje završeno");
+      upisiLog("Vremensko navodnjavanje završeno");
+      if (pistalica == true) {
+        pistalicaF();
+      }
     }
     pokrenuto = false;
 
@@ -512,7 +520,7 @@ void vremenskoNavodnjavanje() {
 
 void rucnoNavodnjavanje() {
   digitalWrite(5, LOW);
-   if (navodnjavanje == false) {
+  if (navodnjavanje == false) {
     upisiLog("Ručni režim aktiviran.");
   }
   navodnjavanje = true;
@@ -527,7 +535,7 @@ void rezimOdmora() {
   pokrenuto = false;
 }
 
-bool pokrenutoV=false;
+bool pokrenutoV = false;
 void ventilatorF() {
   float tmp, hum;
   tmp = dht.readTemperature();
@@ -535,43 +543,51 @@ void ventilatorF() {
   hum = dht.readHumidity();
   hum = hum + (float)kalibracijaHum;
   if (tmp > vTmp or hum > vHum) {
-    digitalWrite(11, LOW);
+    digitalWrite(4, LOW);
     ventilatorS = true;
     if (pokrenutoV == false) {
       upisiLog("Ventilator uključen");
     }
-    pokrenutoV=true;
+    pokrenutoV = true;
   }
   else {
-    digitalWrite(11, HIGH);
+    digitalWrite(4, HIGH);
     ventilatorS = false;
-     if (pokrenutoV == true) {
+    if (pokrenutoV == true) {
       upisiLog("Ventilator isključen");
     }
-    pokrenutoV=false;
+    pokrenutoV = false;
   }
 }
 
+bool pokrenutoZ = false;
 void zimskiF() {
   float tmp;
-  bool pokrenuto = false;
   tmp = dht.readTemperature();
   tmp = tmp + (float)kalibracijaTmp;
   if (tmp <= zmTmpG and tmp >= zmTmpD) {
-    digitalWrite(12, LOW);
+    digitalWrite(9, LOW);
     zimskiS = true;
-    if (pokrenuto == false) {
+    if (pokrenutoZ == false) {
       upisiLog("Zimski režim zaštite pokrenut");
-      pokrenuto = true;
+      pokrenutoZ = true;
+      if (pistalica == true) {
+        pistalicaF();
+      }
     }
+
   }
   else {
-    digitalWrite(12, HIGH);
-    if (pokrenuto == true) {
+    digitalWrite(9, HIGH);
+    if (pokrenutoZ == true) {
       upisiLog("Zimski režim zaštite ugasen");
+      if (pistalica == true) {
+        pistalicaF();
+      }
     }
+
     zimskiS = false;
-    pokrenuto = false;
+    pokrenutoZ = false;
   }
 }
 
@@ -586,6 +602,7 @@ void zimskiF() {
 void automatskoNavodnjavanje() {
   EEPROM_readAnything(154, kalibracijaTmp);
   EEPROM_readAnything(134, kalibracijaHum);
+  int kalibracijaHumZ;
   EEPROM_readAnything(144, kalibracijaHumZ);
   float tmp;
   tmp = dht.readTemperature();
@@ -593,17 +610,20 @@ void automatskoNavodnjavanje() {
   float hum;
   hum = dht.readHumidity();
   hum = hum + (float)kalibracijaHum;
-  float hZS = analogRead(A1);
-  float hZ = map(hZS, 650, 375, 0, 100);
-  hZ = hZ + (float)kalibracijaHumZ;
+  int hZS = analogRead(A1);
+  int hZ = map(hZS, 650, 375, 0, 100);
+  hZ = hZ + kalibracijaHumZ;
 
   if ((hum <= humD and hum >= humG) and (tmp <= tmpG and tmp >= tmpD)) {
     if (hZ <= vlZD) {
       digitalWrite(5, LOW);
       navodnjavanje = true;
       if (pokrenuto == false) {
-        upisiLog("Navodnjavanje pokrenuto");
+        upisiLog("Automatsko navodnjavanje pokrenuto");
         pokrenuto = true;
+        if (pistalica == true) {
+          pistalicaF();
+        }
       }
     }
   }
@@ -612,7 +632,10 @@ void automatskoNavodnjavanje() {
     navodnjavanje = false;
     dodajBrojPokretanja();
     if (pokrenuto == true) {
-      upisiLog("Navodnjavanje završeno");
+      upisiLog("Automatsko navodnjavanje završeno");
+      if (pistalica == true) {
+        pistalicaF();
+      }
     }
     pokrenuto = false;
   }
@@ -632,19 +655,25 @@ void pokretanjePrograma() {
     ventilatorF();
   }
   else {
-    digitalWrite(11, HIGH);
+    //digitalWrite(11, HIGH);
     ventilatorS = false;
   }
   if (zimski == true) {
     zimskiF();
   }
   else {
-    digitalWrite(12, HIGH);
+    //digitalWrite(12, HIGH);
     zimskiS = false;
   }
   if (prihrana == true) {
     if (prihranaB > prihranaBM) {
       prihranaS = true;
+      if (prihranaB > (prihranaBM + 3)) {
+        prihranaS = false;
+        prihranaB = 0;
+        prihranaBM = 0;
+        EEPROM.write(188, 0);
+      }
     }
   }
   else {
@@ -681,6 +710,20 @@ void noviDan() {
   }
 }
 
+void pistalicaF() {
+  digitalWrite(10, HIGH);
+  delay(1000);
+  digitalWrite(10, LOW);
+  delay(3000);
+  digitalWrite(10, HIGH);
+  delay(1000);
+  digitalWrite(10, LOW);
+  delay(3000);
+  digitalWrite(10, HIGH);
+  delay(1000);
+  digitalWrite(10, LOW);
+}
+
 
 /* VREMENSKE (TIMER) FUNKCIJE */
 
@@ -690,8 +733,7 @@ void helloCallback() {
   updateStatus();
   timeTxt.setText(rtc.getTimeStr(FORMAT_SHORT));
   noviDan();
-  //Serial.print("GRESKA>");
-  //Serial.print(greska);
+    
 }
 
 void helloCallback2() {
@@ -703,7 +745,7 @@ void helloCallback2() {
 
 void getProximityStatus() {
   int val = analogRead(A0);
-  if (val > 300) {
+  if (val > 150) {
     sendCommand("sleep=0");
     timer3.stop();
     timer2.stop();
@@ -728,11 +770,12 @@ void upisiLog(String poruka) {
 }
 
 void upisiULog() {
-  float tmp, hum, humZ;
+  float tmp, hum;
   File tmpLog, humLog, humZLog, tmpLogC, humLogC, humZLogC;
 
   EEPROM_readAnything(154, kalibracijaTmp);
   EEPROM_readAnything(134, kalibracijaHum);
+  int kalibracijaHumZ;
   EEPROM_readAnything(144, kalibracijaHumZ);
   tmp = dht.readTemperature();
   tmp = tmp + (float)kalibracijaTmp;
@@ -740,9 +783,9 @@ void upisiULog() {
   hum = dht.readHumidity();
   hum = hum + (float)kalibracijaHum;
 
-  float hZS = analogRead(A1);
-  humZ = map(hZS, 650, 375, 0, 100);
-  humZ = humZ + (float)kalibracijaHumZ;
+  int hZS = analogRead(A1);
+  int humZ = map(hZS, 650, 375, 0, 100);
+  humZ = humZ + kalibracijaHumZ;
 
 
   tmpLog = SD.open("tmpLog.txt", FILE_WRITE);
@@ -986,20 +1029,22 @@ void b605PopCallback(void *ptr) {
 
 /* STRANICA VLAZNOST ZEMLJISTA */
 
+int modA;
+
 void b506PopCallback(void *ptr) {
+  modA = 1;
   int tmp;
   tmp = EEPROM.read(115);
   huZNum.setValue(tmp);
   i = tmp;
-  mod = 1;
 }
 
 void b507PopCallback(void *ptr) {
+  modA = 0;
   int tmp;
   tmp = EEPROM.read(114);
   huZNum.setValue(tmp);
   i = tmp;
-  mod = 0;
 }
 
 
@@ -1012,20 +1057,28 @@ void b509PopCallback (void *ptr) {
   Serial.write(0xff);
   Serial.write(0xff);
   i = tmp;
-  mod = 4;
+  modA = 4;
 }
 
 void b508PopCallback(void *ptr) {
-  if (mod == 0) {
-    EEPROM.write(114, i);
+  //if (mod == 0) {
+  //EEPROM.write(114, i);
+  //}
+
+  //if (mod == 1) {
+  // EEPROM.write(115, i);
+  //}
+  //if (mod == 4) {
+  //EEPROM_writeAnything(144, i);
+  //}
+
+  switch (modA) {
+    case 0: EEPROM.write(114, i); break;
+    case 1: EEPROM.write(115, i); break;
+    case 4: EEPROM_writeAnything(144, i); break;
+    default: break;
   }
-  if (mod == 1) {
-    EEPROM.write(115, i);
-  }
-  if (mod == 4) {
-    EEPROM_writeAnything(144, i);
-  }
-  mod = 3;
+  //mod = 3;
 
 }
 
@@ -1140,12 +1193,12 @@ void b802PopCallback(void *ptr) {
   if (zimski == 0) {
     zimski = true;
     EEPROM.write(118, 1);
-    digitalWrite(13, HIGH);
+    upisiLog("Zimski režim zaštite ukljucen");
   }
   else {
     zimski = false;
     EEPROM.write(118, 0);
-    digitalWrite(13, LOW);
+    upisiLog("Zimski režim zaštite iskljucen");
   }
 
 }
@@ -1275,6 +1328,13 @@ void updateStatus() {
   }
   else {
     p9.setVisible(0);
+  }
+
+  if (greska == true) {
+    p10.setVisible(1);
+  }
+  else {
+    p10.setVisible(0);
   }
 
 
@@ -1637,6 +1697,9 @@ void bt202PopCallback(void *ptr) {
   if (pistalica == false) {
     pistalica = true;
     EEPROM.write(128, 1);
+    digitalWrite(10, HIGH);
+    delay(200);
+    digitalWrite(10, LOW);
   }
   else {
     pistalica = false;
@@ -1648,6 +1711,7 @@ void bt202PopCallback(void *ptr) {
 
 void b110PopCallback(void *ptr) {
   bt201.setValue(ventilTest);
+  pistalica= EEPROM.read(128);
   bt202.setValue(pistalica);
 }
 
@@ -1723,10 +1787,12 @@ void bt709PopCallback(void *ptr) {
   if (ventilator == 0) {
     ventilator = true;
     EEPROM.write(132, 1);
+    upisiLog("Ventilator ukljucen");
   }
   else {
     ventilator = false;
     EEPROM.write(132, 0);
+    upisiLog("Ventilator iskljucen");
   }
 }
 
@@ -1873,6 +1939,8 @@ void b1705PopCallback(void *ptr) {
 }
 
 void b208PopCallback(void *ptr) {
+  proximity = EEPROM.read(129);
+  offTime = EEPROM.read(152);
   bt1701.setValue(proximity);
   bt1702.setValue(offTime);
 }
@@ -2326,6 +2394,7 @@ void setup() {
   if (!SD.begin(53)) {
     //Serial.println("initialization failed!");
     //while (1);
+    //greska=true;
   }
   else {
     sdOK = true;
@@ -2337,8 +2406,14 @@ void setup() {
   rtc.begin();
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(5, OUTPUT);
+  pinMode(4, OUTPUT);
+  pinMode(9, OUTPUT);
   pinMode(53, OUTPUT);
+  pinMode(10, OUTPUT);
+  digitalWrite(10, LOW);
+  digitalWrite(4, HIGH);
   digitalWrite(5, HIGH);
+  digitalWrite(9, HIGH);
   pinMode(A0, INPUT);
   pinMode(A1, INPUT);
 
@@ -2351,7 +2426,9 @@ void setup() {
 void trenutneVrednosti() {
   EEPROM_readAnything(154, kalibracijaTmp);
   EEPROM_readAnything(134, kalibracijaHum);
+  int kalibracijaHumZ;
   EEPROM_readAnything(144, kalibracijaHumZ);
+
   float t = dht.readTemperature();
   t = t + (float)kalibracijaTmp;
   static char temperatureCTemp[3];
@@ -2364,19 +2441,22 @@ void trenutneVrednosti() {
   dtostrf(h, 3, 0, humidityC);
   humTxt.setText(humidityC);
 
-  float hZS = analogRead(A1);
-  float hZ = map(hZS, 650, 375, 0, 100);
-  hZ = hZ + (float)kalibracijaHumZ;
+  int hZS = analogRead(A1);
+  int hZ = map(hZS, 650, 375, 0, 100);
+  hZ = hZ + kalibracijaHumZ;
+  //Serial.println("HKZ>");
+  //Serial.println(kalibracijaHumZ);
   static char humidityZ[3];
   dtostrf(hZ, 3, 0, humidityZ);
   if (hZ >= 0 and hZ <= 100) {
     humZTxt.setText(humidityZ);
     //p10.setVisible(0);
+    //greska=false;
   }
   else {
     //EEPROM.write(250,greska);
     humZTxt.setText("n/a");
-    // p10.setVisible(1);
+    //greska=true;
   }
 }
 
@@ -2394,20 +2474,21 @@ void loop() {
     else{
     sendCommand("sleep=1");
     }*/
-  timer.update();
+  //timer.update();
   if (offTime == true) {
-    timer2.update();
+    //timer2.update();
   }
   if (proximity == true) {
-    timer3.update();
+    //timer3.update();
   }
   if (sdOK == true) {
-    timer4.update();
+    //timer4.update();
   }
   //huNum.setVisible(0);
-  // reads the value of the sharp sensor
-  //Serial.println(val);
-  //delay(200);
-  nexLoop(nex_listen_list);
+//  reads the value of the sharp sensor
+  int val = analogRead(A0);
+  Serial.println(val);
+  delay(200);
+  //nexLoop(nex_listen_list);
 
 }
