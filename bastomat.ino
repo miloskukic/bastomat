@@ -10,6 +10,9 @@
 #include <SPI.h>
 #include <SD.h>
 
+#define elVentilR 4
+#define ventilatorR 5
+#define zimskiR 9
 
 
 Timer timer;
@@ -542,7 +545,7 @@ void ventilatorF() {
   tmp = tmp + (float)kalibracijaTmp;
   hum = dht.readHumidity();
   hum = hum + (float)kalibracijaHum;
-  if (tmp > vTmp or hum > vHum) {
+  if (tmp > vTmp and hum > vHum) {
     digitalWrite(4, LOW);
     ventilatorS = true;
     if (pokrenutoV == false) {
@@ -1792,6 +1795,7 @@ void bt709PopCallback(void *ptr) {
   else {
     ventilator = false;
     EEPROM.write(132, 0);
+    digitalWrite(4,HIGH);
     upisiLog("Ventilator iskljucen");
   }
 }
@@ -2474,21 +2478,21 @@ void loop() {
     else{
     sendCommand("sleep=1");
     }*/
-  //timer.update();
+  timer.update();
   if (offTime == true) {
-    //timer2.update();
+    timer2.update();
   }
   if (proximity == true) {
-    //timer3.update();
+    timer3.update();
   }
   if (sdOK == true) {
-    //timer4.update();
+    timer4.update();
   }
   //huNum.setVisible(0);
 //  reads the value of the sharp sensor
-  int val = analogRead(A0);
-  Serial.println(val);
-  delay(200);
+  //int val = analogRead(A0);
+ // Serial.println(val);
+  // delay(200);
   //nexLoop(nex_listen_list);
 
 }
